@@ -17,6 +17,8 @@
 // int* forks = malloc(sizeof(int) * NUMBER_OF_PHILOSOPHERS);
 pthread_mutex_t forks[NUMBER_OF_PHILOSOPHERS];
 pthread_t philosophers[NUMBER_OF_PHILOSOPHERS];
+
+int leftRightHands[NUMBER_OF_PHILOSOPHERS];
 //pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /**
@@ -41,15 +43,26 @@ void initForks(int *philosophers_id)
  */
 void eat(int id)
 {
+    int firstFork, secondFork;
+    if (leftRightHands[id] == 1)
+    {
+        firstFork = id;
+        secondFork = (id + 1) % NUMBER_OF_PHILOSOPHERS;
+    }
+    else
+    {
+        firstFork = (id + 1) % NUMBER_OF_PHILOSOPHERS;
+        secondFork = id;
+    }
     printf("Philosopher %d is trying to eat.\n", id);
-    pthread_mutex_lock(forks[id]);
+    pthread_mutex_lock(&forks[firstFork]);
     printf("Philosopher %d has first fork.\n", id);
-    pthread_mutex_lock(forks[id + 1 % NUMBER_OF_PHILOSOPHERS]);
+    pthread_mutex_lock(&forks[secondFork]);
     printf("Philosopher %d has second fork.\n", id);
     printf("Philosopher %d is eating.\n", id);
-    sleep(rand() * 5);
-    pthread_mutex_unlock(forks[id + 1 % NUMBER_OF_PHILOSOPHERS]);
-    pthread_mutex_unlock(forks[id]);
+    usleep(rand() % 5);
+    pthread_mutex_unlock(&forks[secondFork]);
+    pthread_mutex_unlock(&forks[firstFork]);
 }
 
 /**
@@ -60,21 +73,23 @@ void eat(int id)
 void think(int id)
 {
     printf("Philosopher %d is thinking.\n", id);
-    sleep(rand() * 5);
+    usleep(rand() % 5);
 }
 
 
 /**
  * Philosophers think or eat
  * 
- * @param index Index of philosopher
+ * @param philosopher Philosopher thread
  */
-void philosoph(int index)
+void* philosoph(void* philosopher)
 {
+    int index = *(int*)philosopher;
     while (1)
     {
         think(index);
         eat(index);
+        usleep(1);
     }
 }
 
@@ -83,16 +98,34 @@ void philosoph(int index)
  */
 int main(int argc, char** argv)
 {
-    printf("Starting...\n");
-    // TODO: doplnit vice textu o tom, co program dela
+    printf("This program starts %d threads as philosophers. Each philosopher either thinks or eats. Philosopher needs two forks to eat.\n", NUMBER_OF_PHILOSOPHERS);
+    printf("You can either run program withou parameters (one of philosophers will be left handed) or you can run it as <program name> -right to let all philosophers be right handed (this option may cause deadlock).\n\nPRESS ANY KEY TO CONTINUE...\n");
+    
+    char line[256];
+    int i;
+    
+    for (i = 0; i < NUMBER_OF_PHILOSOPHERS; i++)
+    {
+        leftRightHands[i] = 1;
+    }
+    
+    if (argc == 1)
+    {
+        leftRightHands[0] = 0;
+    }
+    
+    fgets(line, sizeof line, stdin);
     int philosophers_id[NUMBER_OF_PHILOSOPHERS];
     initForks(philosophers_id);
-    return 0;
     //init philosopher threads
-    int i;
     for (i = 0; i < NUMBER_OF_PHILOSOPHERS; i++)
     {
         pthread_create(philosophers + i, 0, philosoph, philosophers_id + i);
     }
-    return pthread_join(philosophers[0], 0);
+    for (i = 0; i < NUMBER_OF_PHILOSOPHERS; i++)
+    {
+        pthread_join(philosophers[i], 0);
+    }
+    
+    return 0;
 }
